@@ -1,16 +1,45 @@
-const { CartNerveAgent } = require('cartnerve-agent')
+require('./agent')
+const express = require('express')
+const app = express()
+const PORT = process.env.PORT || 3000
 
-const agent = new CartNerveAgent({
-  apiKey: "cn_d5656fe6bdd83df832076f9c7dcfdd480f560fd969c00b49",
-  projectId: "a46fcc94-c88d-45cb-93d3-c451b790c633",
-  services: [
-    { 
-      name: "cartnerve-target", 
-      type: "api", 
-      endpoint: "https://cartnerve-target-production.up.railway.app/health"
-    }
-  ]
+let crashMode = false
+let crashCount = 0
+
+// Simulate a crash every 30 seconds
+setInterval(() => {
+  crashMode = true
+  crashCount++
+  console.log(`💥 Simulating crash #${crashCount}...`)
+  setTimeout(() => {
+    crashMode = false
+    console.log('✅ Service recovered')
+  }, 10000)
+}, 30000)
+
+app.get('/', (req, res) => {
+  if (crashMode) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Service unavailable — simulated crash',
+      timestamp: new Date().toISOString()
+    })
+  }
+  res.json({
+    status: 'ok',
+    message: 'CartNerve target service running',
+    crash_count: crashCount,
+    timestamp: new Date().toISOString()
+  })
 })
 
-agent.start()
-console.log('🤖 CartNerve agent started')
+app.get('/health', (req, res) => {
+  if (crashMode) {
+    return res.status(500).json({ status: 'unhealthy' })
+  }
+  res.json({ status: 'healthy' })
+})
+
+app.listen(PORT, () => {
+  console.log(`CartNerve target running on port ${PORT}`)
+})
